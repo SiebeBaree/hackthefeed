@@ -1,53 +1,100 @@
-import type { IconName } from '@/lib/onboarding/data';
-import { beliefLabels, competitorsFor, nicheById, pickedVideos, validSocials } from '@/lib/onboarding/state';
+import { useEffect, useRef, useState } from 'react';
+import type { GenerateResponse } from '@/app/api/generate/route';
+import { checkClip, isPending, type Clip } from '@/lib/clips';
+import { beliefLabels, pickedVideos, type State } from '@/lib/onboarding/state';
+import { SAMPLE_CLIP } from '@/lib/samples';
 import type { StepProps } from '../Onboarding';
-import { Icon } from '../icons';
-import { CheckCircle, cx, RemoteImage } from '../ui';
 
-type Item = { icon: IconName; t: string; d: string; done: boolean; cta?: string; focus?: boolean };
+type Video = { videoUrl: string; poster?: string; line?: string; download: string };
 
-export default function DoneStep({ s, toast }: StepProps) {
-  const products = s.products.filter(p => p.selected);
-  const socials = validSocials(s);
-  const comps = [...competitorsFor(s.niche).filter(c => s.comps.includes(c.h)).map(c => c.n), ...s.custom.filter(h => s.comps.includes(h)).map(h => '@' + h)];
-  const beliefs = beliefLabels(s);
-  const items: Item[] = [
-    { icon: 'globe', t: 'Describe the company', d: s.what.trim(), done: true },
-    { icon: 'can', t: 'Add products', d: products.length ? products.map(p => p.title).join(', ') : 'Skipped. Videos won’t feature a specific product.', done: products.length > 0, cta: 'Add' },
-    { icon: 'tag', t: 'Set the niche', d: `${nicheById(s.niche)?.t ?? ''} · ${s.genres.join(', ')}`, done: true },
-    { icon: 'film', t: 'Read current content', d: socials.length ? `${socials.map(l => l.label).join(', ')} · last 90 days` : 'Skipped. Add channels so the agent knows what you already post.', done: socials.length > 0, cta: 'Add' },
-    { icon: 'users', t: 'Watch competitors', d: comps.length ? comps.join(', ') : 'Skipped. The agent will suggest accounts after its first scan.', done: comps.length > 0, cta: 'Add' },
-    { icon: 'flag', t: 'Set your edge', d: beliefs.length ? beliefs.join(', ') : 'Skipped. Without it, pitches follow what’s trending rather than your angle.', done: beliefs.length > 0, cta: 'Add' },
-    { icon: 'grid', t: 'Pick videos to learn from', d: pickedVideos(s).map(v => v.t).join(', '), done: true },
-    { icon: 'play', t: 'Review your first 5 pitches', d: 'Drafted from this week’s Oriane results.', done: false, cta: 'Review', focus: true },
-    { icon: 'share', t: 'Connect a channel to post', d: 'Nothing posts without your approval.', done: false, cta: 'Connect' },
-  ];
-  const left = items.filter(i => !i.done).length;
+/** Company brief for the script writer, from the onboarding answers. */
+function brief(s: State) {
+  const product = s.products.find(p => p.selected);
+  const edge = beliefLabels(s);
+  return [
+    `${s.client.trim() || s.siteInfo?.title || s.site}: ${s.what.trim()}`,
+    s.site && `Website: ${s.site}`,
+    product && `Hero product for this video: ${product.title}`,
+    edge.length > 0 && `Edge: ${edge.join('; ')}`,
+  ].filter(Boolean).join('\n');
+}
+
+// Shopify serves product photos at any width; placement copies the label better from a big one.
+const fullRes = (src: string) => src.replace(/_\d+x(?=\.\w+(\?|$))/, '_1200x');
+
+const SAMPLE: Video = { videoUrl: SAMPLE_CLIP.videoUrl, poster: SAMPLE_CLIP.imageUrl, line: SAMPLE_CLIP.line, download: SAMPLE_CLIP.videoUrl };
+
+/**
+ * End of onboarding: generates one clip from the first picked video and product via /api/generate,
+ * shows a spinner until it's rendered, then the pre-rendered sample next to it. If generation fails,
+ * only the sample shows.
+ */
+export default function DoneStep({ s }: StepProps) {
+  const source = pickedVideos(s)[0];
+  const [clip, setClip] = useState<Clip | null>(null);
+  const [startFailed, setStartFailed] = useState(false);
+  const started = useRef(false); // refs survive Strict Mode's double effect run, so this only spends credits once
+
+  useEffect(() => {
+    if (started.current || !source) return;
+    started.current = true;
+    const product = s.products.find(p => p.selected)?.images[0];
+    const video = 'transcript' in source
+      ? JSON.stringify({ caption: source.caption, transcript: source.transcript, onScreenText: source.onScreenText, views: source.views, handle: source.handle })
+      : `${source.t}: ${source.cap}`;
+    (async () => {
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ company: brief(s), productImage: product && fullRes(product), videos: [video], perVideo: 1 }),
+        });
+        const data: GenerateResponse | { error: string } = await res.json();
+        const first = 'error' in data ? null : data.results[0];
+        if (!first?.requestId) return setStartFailed(true);
+        setClip(first);
+      } catch {
+        setStartFailed(true);
+      }
+    })();
+  }, [s, source]);
+
+  // Poll the render until it's done or has failed for good.
+  useEffect(() => {
+    if (!clip || !isPending(clip)) return;
+    const t = setTimeout(async () => {
+      const update = await checkClip(clip);
+      setClip(prev => prev && { ...prev, ...update }); // new object even if unchanged, so the next poll is scheduled
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [clip]);
+
+  const failed = !source || startFailed || (!!clip && !isPending(clip) && !clip.videoUrl);
+  if (!failed && !clip?.videoUrl) {
+    return (
+      <div role="status" className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-ink-2">
+        <span aria-hidden className="size-9 rounded-full border-[3px] border-line border-t-accent motion-safe:animate-spin" />
+        {clip ? 'Rendering your video' : 'Writing the script and casting'}
+        <span className="text-[13.5px] text-ink-3">Takes about two minutes</span>
+      </div>
+    );
+  }
+
+  const videos = clip?.videoUrl
+    ? [SAMPLE, { videoUrl: clip.videoUrl, poster: clip.imageUrl, line: clip.line, download: `/api/download?url=${encodeURIComponent(clip.videoUrl)}` }]
+    : [SAMPLE];
 
   return (
-    <div className="w-full max-w-[720px] overflow-hidden rounded-[10px] border border-line text-left">
-      <div className="flex items-center justify-between gap-3 px-[18px] pt-4 pb-3">
-        <h2 className="text-base font-medium">Getting started</h2>
-        <span className="text-[13.5px] text-ink-2 tabular-nums">{left} steps left</span>
-      </div>
-      <div className="h-[3px] bg-line"><div className="h-full bg-accent" style={{ width: `${((items.length - left) / items.length) * 100}%` }} /></div>
-      {items.map(i => (
-        <div key={i.t} className={cx('grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3.5 border-t border-line px-[18px] py-3 first-of-type:border-t-0 max-sm:gap-2.5 max-sm:px-3.5', i.focus && 'bg-accent-soft')}>
-          <span className={cx('grid size-[38px] place-items-center rounded-full text-accent', i.focus ? 'bg-surface' : 'bg-surface-2')}><Icon name={i.icon} size={18} /></span>
-          <span>
-            <span className={cx('block text-[15px]', i.done ? 'text-ink-2 line-through decoration-1' : 'font-medium')}>{i.t}</span>
-            <span className="block text-[13.5px] break-words text-ink-2">{i.d}</span>
-            {i.icon === 'can' && products.length > 0 && (
-              <span className="mt-1.5 flex gap-1.5">
-                {products.slice(0, 6).map(p => p.images[0] && <RemoteImage key={p.id} src={p.images[0]} alt={p.title} className="size-9 rounded-md border border-line object-cover" />)}
-              </span>
-            )}
-          </span>
-          {i.done
-            ? <span role="img" aria-label="Done"><CheckCircle on /></span>
-            : <button type="button" onClick={() => toast(`Prototype ends here. In the app, “${i.cta}” opens that step.`)}
-                className="h-[34px] rounded-full bg-accent px-4 text-sm font-medium whitespace-nowrap text-white hover:brightness-110">{i.cta}</button>}
-        </div>
+    <div className="flex w-full flex-wrap justify-center gap-6">
+      {videos.map(v => (
+        <figure key={v.videoUrl} className="flex w-[min(100%,calc(78vh*9/16))] flex-col gap-3">
+          <video src={v.videoUrl} poster={v.poster} controls playsInline preload="metadata"
+            className="aspect-[9/16] w-full rounded-[10px] border border-line bg-surface-2 object-cover" />
+          <figcaption className="flex items-start justify-between gap-3">
+            {v.line && <span className="text-[13.5px] leading-snug text-ink-2">“{v.line}”</span>}
+            <a href={v.download} download className="shrink-0 text-sm font-medium text-accent hover:underline">Download</a>
+          </figcaption>
+        </figure>
       ))}
     </div>
   );

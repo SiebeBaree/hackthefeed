@@ -36,10 +36,10 @@ const TITLES: Record<StepId, (s: State) => string> = {
   comps: () => 'Who are your competitors?',
   beliefs: () => 'What’s your edge?',
   videos: () => 'Which videos should we learn from?',
-  done: s => (s.role === 'agency' && s.client.trim() ? `${s.client.trim()}’s Studio is ready` : 'Your Studio is ready'),
+  done: s => (s.role === 'agency' && s.client.trim() ? `${s.client.trim()}’s videos` : 'Your videos'),
 };
 
-const NEXT_LABEL: Partial<Record<StepId, string>> = { videos: 'Build Studio', done: 'Open Studio' };
+const NEXT_LABEL: Partial<Record<StepId, string>> = { videos: 'Make my video' };
 
 export default function Onboarding() {
   const [s, set] = useState<State>(initialState);
@@ -99,7 +99,6 @@ export default function Onboarding() {
 
   const next = () => {
     if (!canContinue(s)) return;
-    if (id === 'done') return setToast('Prototype ends here. In the app this opens the Studio.');
     set(p => ({ ...p, step: p.step + 1 }));
   };
   const back = () => (id === 'done' ? set(initialState()) : set(p => ({ ...p, step: Math.max(0, p.step - 1) })));
@@ -150,9 +149,11 @@ export default function Onboarding() {
           {id === 'done' ? 'Start over' : <><Icon name="left" size={16} stroke={2} />Back</>}
         </button>
         {SKIPPABLE[id] && <button type="button" onClick={skip} className={btn.link}>{SKIPPABLE[id]}</button>}
-        <button type="button" onClick={next} disabled={!canContinue(s)} className={cx(btn.primary, 'max-sm:flex-1')}>
-          {NEXT_LABEL[id] ?? 'Continue'}
-        </button>
+        {id !== 'done' && (
+          <button type="button" onClick={next} disabled={!canContinue(s)} className={cx(btn.primary, 'max-sm:flex-1')}>
+            {NEXT_LABEL[id] ?? 'Continue'}
+          </button>
+        )}
       </div>
       {id !== 'done' && <p className="-mt-5 text-center text-[13px] text-ink-3">You can change any of this later in the Studio.</p>}
 

@@ -5,16 +5,17 @@ import { z } from "zod";
 const QUEUE_URL = "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey";
 const CHAT_URL = "https://api.gmi-serving.com/v1/chat/completions";
 
-export const VIDEO_MODEL = process.env.GMI_VIDEO_MODEL ?? "veo-3.1-lite-generate-001";
+// Veo 3.1 Fast holds the can label steadier through motion than Lite; worth the $0.80 extra per clip.
+export const VIDEO_MODEL = process.env.GMI_VIDEO_MODEL ?? "veo-3.1-fast-generate-001";
 const IMAGE_MODEL = "gemini-3.1-flash-image";
 const LLM_MODEL = process.env.GMI_LLM_MODEL ?? "deepseek-ai/DeepSeek-V4-Flash";
 export const FALLBACK_VIDEO_MODEL = "seedance-2-0-fast-260128";
 
 // Talking-head capable models (native audio + lip sync). Price per second at 720p with audio.
 export const VIDEO_MODELS = [
-  "veo-3.1-lite-generate-001", // $0.05/s, best value
+  "veo-3.1-fast-generate-001", // $0.15/s, default
+  "veo-3.1-lite-generate-001", // $0.05/s, cheapest
   "seedance-2-0-fast-260128", // $0.12/s
-  "veo-3.1-fast-generate-001", // $0.15/s
   "seedance-2-5-260628", // $0.23/s, highest fidelity
 ] as const;
 
@@ -66,15 +67,15 @@ export function getJob(id: string) {
 }
 
 /**
- * Photoreal still of a person holding the product. `refs` are product photo URLs the
- * model copies the packaging from. Waits for the job and returns a hosted image URL.
+ * 9:16 still from Nano Banana. Without `refs` it generates; with them it edits (first ref is the
+ * image to edit, the rest are product photos to copy from). Waits for the job and returns a hosted URL.
  */
-export async function generateImage(prompt: string, refs: string[]) {
+export async function generateImage(prompt: string, refs: string[] = []) {
   const job = await submit(IMAGE_MODEL, {
     prompt,
     ...(refs.length && { image: refs }),
     aspect_ratio: "9:16",
-    image_size: "1K",
+    image_size: "2K", // keeps small label text sharp after placement
     image_output_format: "jpeg",
   });
   for (let i = 0; i < 40; i++) {

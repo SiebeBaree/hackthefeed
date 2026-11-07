@@ -1,7 +1,19 @@
 // Demo data: Wildwonder plus real viral Poppi videos pulled from Oriane (see samples/oriane-poppi.json).
 export const SAMPLE_COMPANY = "Wildwonder (https://drinkwildwonder.com): prebiotic + probiotic sparkling drink for a happy gut.\nReal fruit and herbs, 40 calories and 6g sugar per can, 20% daily fiber, caffeine free, vegan, USDA Organic, woman-owned.\nFlavors: Raspberry Lychee (best seller), Apple Yuzu (new), Pink Pomelo Limeade, Cherry Lemonade, Strawberry Passion, Guava Rose, Mango Gold.\nPrice: $42 for 12 cans, $35.70 with Subscribe & Save.\nTone: upbeat and playful. Slogan: Happy Gut Happy Life.\nCompetitors: Poppi, Olipop, Bloom Pop.\nHero product for these videos: the pink Raspberry Lychee can.";
 
-export const SAMPLE_PRODUCT_IMAGE = "https://cdn.shopify.com/s/files/1/0264/8952/0171/files/Raspberry_3.jpg";
+// Front-on packshot: placement copies the label best from a photo taken at the angle it shows.
+export const SAMPLE_PRODUCT_IMAGE = "https://drinkwildwonder.com/cdn/shop/files/Raspberry_1B_1200x.jpg?v=1784029237";
+
+/**
+ * A finished Wildwonder clip, pre-rendered with the same pipeline (scene, product placement, Veo 3.1 Fast)
+ * from the Poppi "Eve ate the apple" video below, so the demo shows a result without waiting on GMI.
+ */
+export const SAMPLE_CLIP = {
+  line: "Adam, babe... they said no apples. This is Wildwonder raspberry lychee. So technically, we're fine.",
+  from: "Poppi “Eve ate the apple” · 9.4M views",
+  videoUrl: "/samples/wildwonder-eve.mp4",
+  imageUrl: "/samples/wildwonder-eve.jpg",
+};
 
 export const SAMPLE_VIDEOS: string[] = [
   "{\n  \"id\": \"cnt_022c99387f5b331cd5b54045daff\",\n  \"platform\": \"tiktok\",\n  \"url\": \"https://www.tiktok.com/@octopusslover8/video/7673239020784209166\",\n  \"profileHandle\": \"octopusslover8\",\n  \"profileFollowersCount\": 4200000,\n  \"publishedAt\": \"2026-08-12T20:06:51.000Z\",\n  \"viewsCount\": 9400000,\n  \"likesCount\": 227100,\n  \"commentsCount\": 362,\n  \"sharesCount\": 1656,\n  \"engagementRatePerViews\": 2.4374255319148936,\n  \"caption\": \"Replying to @DHD the @POPPI sour apple was just too tempting… #poppipartner \",\n  \"hashtags\": [\n    \"#poppipartner\"\n  ],\n  \"media\": [\n    {\n      \"type\": \"video\",\n      \"duration\": 46,\n      \"transcript\": \"Adam, babe, I was just washing my hair down at the river, which by the way, I feel like we need to cut. And I found this drinkity thingy, and I know that they said we like couldn't take anything or whatever, but I feel like we've been having water, water every single day. And I'm like, it's like giving me a lot of anxiety. And I feel like if I had this, would you have it? For sure. Do you swear? Yes. Like if I got in trouble, you'd get in trouble too. Totally. Okay. I feel like we're not going to get in trouble, so I feel like it's fine. And it's like, finally, something not water. Try. Do you like? It's good, right? Really good. Yeah. And I feel like it's like whoever's watching us, like, will be good.\",\n      \"onScreenText\": [\n        \"Reply to DHD's comment\",\n        \"please do when Eve\",\n        \"ate the apple\",\n        \"poppi\"\n      ]\n    }\n  ]\n}",
